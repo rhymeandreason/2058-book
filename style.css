@@ -213,7 +213,7 @@ html, body {
 }
 
 .text-panel p {
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1.8;
   letter-spacing: 0.01em;
   color: var(--text);
@@ -262,6 +262,7 @@ html, body {
   align-items: center;
   justify-content: center;
   min-height: 0;
+  mix-blend-mode: multiply;
 }
 
 .illus-img img {
@@ -269,6 +270,7 @@ html, body {
   height: 100%;
   object-fit: contain;
   display: block;
+  mix-blend-mode: multiply;
 }
 
 .spread.illus-in .illus-img { opacity: 1; transform: none; }
