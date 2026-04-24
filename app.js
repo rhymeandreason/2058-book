@@ -10,15 +10,16 @@ const state = {
   manifest: [],
   cache: {},
   currentIndex: 0,
+  currentSpreadIndex: 0,
   isTransitioning: false,
   pickerOpen: false,
-  view: 'day',       // 'day' | 'month'
-  viewMonth: null,   // 'MM' string when in month view
+  view: 'day',
+  viewMonth: null,
 };
 
-const stage    = document.getElementById('stage');
-const dot      = document.getElementById('nav-dot');
-const picker   = document.getElementById('picker');
+const stage      = document.getElementById('stage');
+const dot        = document.getElementById('nav-dot');
+const picker     = document.getElementById('picker');
 const pickerList = document.getElementById('picker-list');
 
 // ── Fetch helpers ─────────────────────────────────────────
@@ -28,21 +29,54 @@ async function loadEntry(slug) {
   const res = await fetch(`content/days/${slug}.json`);
   if (!res.ok) throw new Error(`Failed to load ${slug}.json`);
   const data = await res.json();
+  // Normalise: legacy flat format → spreads array
+  if (!data.spreads) {
+    data.spreads = [{ paragraphs: data.paragraphs, illustrations: data.illustrations }];
+  }
   state.cache[slug] = data;
   return data;
 }
 
 function prefetchNeighbors(index) {
   const prev = state.manifest[index - 1];
-  const next = state.manifest[index + 1];
+  const next  = state.manifest[index + 1];
   if (prev) loadEntry(prev).catch(() => {});
-  if (next) loadEntry(next).catch(() => {});
+  if (next)  loadEntry(next).catch(() => {});
+}
+
+// ── URL helpers ───────────────────────────────────────────
+
+function parseHashDay(hash) {
+  if (!hash.startsWith('#/day/')) return null;
+  const parts       = hash.slice(6).split('/');
+  const slug        = parts[0];
+  const spreadIndex = parts[1] ? parseInt(parts[1], 10) - 1 : 0; // URL is 1-indexed
+  const dayIndex    = state.manifest.indexOf(slug);
+  if (dayIndex === -1) return null;
+  return { slug, dayIndex, spreadIndex };
+}
+
+function hashForSpread(slug, spreadIndex) {
+  return spreadIndex === 0 ? `#/day/${slug}` : `#/day/${slug}/${spreadIndex + 1}`;
+}
+
+function positionFromHash(hash) {
+  const p = parseHashDay(hash);
+  if (!p) return null;
+  return p.dayIndex + p.spreadIndex * 0.01;
+}
+
+function monthFromHash(hash) {
+  if (hash.startsWith('#/day/')) return parseInt(hash.slice(6, 8), 10);
+  if (hash.startsWith('#/month/')) return parseInt(hash.slice(8), 10);
+  return null;
 }
 
 // ── DOM builders ──────────────────────────────────────────
 
-function buildSpread(entry) {
-  const el = document.createElement('div');
+function buildSpread(entry, spreadIndex) {
+  const spread = entry.spreads[spreadIndex];
+  const el     = document.createElement('div');
   el.className = 'spread';
 
   // Date gutter
@@ -58,19 +92,19 @@ function buildSpread(entry) {
   // Text panel
   const textPanel = document.createElement('div');
   textPanel.className = 'text-panel';
-  entry.paragraphs.forEach(p => {
-    const el = document.createElement('p');
-    el.textContent = p;
-    textPanel.appendChild(el);
+  spread.paragraphs.forEach(p => {
+    const para = document.createElement('p');
+    para.textContent = p;
+    textPanel.appendChild(para);
   });
 
   // Illustration panel
   const illusPanel = document.createElement('div');
   illusPanel.className = 'illus-panel';
-  const count = entry.illustrations.length;
+  const count = spread.illustrations.length;
   illusPanel.dataset.count = Math.min(count, 3);
 
-  const imgPromises = entry.illustrations.slice(0, 3).map(filename => {
+  const imgPromises = spread.illustrations.slice(0, 3).map(filename => {
     return new Promise(resolve => {
       const wrapper = document.createElement('div');
       wrapper.className = 'illus-img';
@@ -83,7 +117,7 @@ function buildSpread(entry) {
     });
   });
 
-  // Peek card (next page affordance) — shown after spread settles
+  // Peek card
   const peek = document.createElement('div');
   peek.className = 'peek-next';
   peek.addEventListener('click', () => { pulseDot(); navigate(1); });
@@ -100,7 +134,6 @@ function buildMonthView(monthStr) {
   const monthIndex = parseInt(monthStr, 10) - 1;
   const monthName  = MONTH_NAMES[monthIndex];
 
-  // Build a set of day numbers that have entries this month
   const entryDays = new Set();
   state.manifest.forEach(slug => {
     const [mm, dd] = slug.split('-');
@@ -110,7 +143,6 @@ function buildMonthView(monthStr) {
   const el = document.createElement('div');
   el.className = 'month-view';
 
-  // Month nav header
   const nav = document.createElement('div');
   nav.className = 'month-nav';
 
@@ -133,7 +165,6 @@ function buildMonthView(monthStr) {
   nav.appendChild(nextBtn);
   el.appendChild(nav);
 
-  // Calendar grid
   const grid = document.createElement('div');
   grid.className = 'cal-grid';
 
@@ -144,22 +175,18 @@ function buildMonthView(monthStr) {
     grid.appendChild(h);
   });
 
-  const firstDow = new Date(YEAR, monthIndex, 1).getDay();
+  const firstDow    = new Date(YEAR, monthIndex, 1).getDay();
   const daysInMonth = new Date(YEAR, monthIndex + 1, 0).getDate();
 
-  // Empty cells before first day
   for (let i = 0; i < firstDow; i++) {
     const cell = document.createElement('div');
-    cell.className = 'cal-day empty';
-    const row = Math.floor(i / 7);
-    cell.classList.add(`row-${row}`);
+    cell.className = `cal-day empty row-${Math.floor(i / 7)}`;
     grid.appendChild(cell);
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const cell = document.createElement('div');
-    const col  = (firstDow + d - 1) % 7;
     const row  = Math.floor((firstDow + d - 1) / 7);
+    const cell = document.createElement('div');
     cell.className = `cal-day row-${row}`;
     cell.textContent = d;
 
@@ -167,10 +194,7 @@ function buildMonthView(monthStr) {
       cell.classList.add('has-entry');
       const mm = monthStr;
       const dd = String(d).padStart(2, '0');
-      const filename = `${mm}-${dd}.json`;
-      cell.addEventListener('click', () => {
-        location.hash = `#/day/${mm}-${dd}`;
-      });
+      cell.addEventListener('click', () => { location.hash = `#/day/${mm}-${dd}`; });
     }
 
     grid.appendChild(cell);
@@ -190,12 +214,9 @@ function transitionIn(newEl, direction, onSettled) {
 
   const old = stage.querySelector('.visible');
   if (old) {
-    const exitClass = direction === 'forward' ? 'exiting-left' : 'exiting-right';
-    old.classList.replace('visible', exitClass);
+    old.classList.replace('visible', direction === 'forward' ? 'exiting-left' : 'exiting-right');
   }
 
-  // Double rAF: first frame paints initial off-screen position,
-  // second frame starts the transition
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       newEl.classList.replace(enterClass, 'visible');
@@ -210,30 +231,35 @@ function transitionIn(newEl, direction, onSettled) {
 
 // ── Spread renderer ───────────────────────────────────────
 
-async function renderSpread(index, direction) {
+async function renderSpread(dayIndex, spreadIndex, direction) {
   if (state.isTransitioning) return;
   state.isTransitioning = true;
   state.view = 'day';
 
-  const slug  = state.manifest[index];
+  const slug  = state.manifest[dayIndex];
   const entry = await loadEntry(slug);
-  prefetchNeighbors(index);
+  prefetchNeighbors(dayIndex);
 
-  const { el, imgPromises, peek } = buildSpread(entry);
-  const hasNext = index < state.manifest.length - 1;
+  // Clamp spreadIndex in case of stale URLs
+  const si = Math.max(0, Math.min(spreadIndex, entry.spreads.length - 1));
+
+  const { el, imgPromises, peek } = buildSpread(entry, si);
+
+  const hasNextSpread = si < entry.spreads.length - 1;
+  const hasNextDay    = dayIndex < state.manifest.length - 1;
+  const hasNext       = hasNextSpread || hasNextDay;
 
   transitionIn(el, direction, () => {
     el.classList.add('text-in', 'date-in');
     if (hasNext) peek.classList.add('visible');
-    state.isTransitioning = false;
-    state.currentIndex = index;
+    state.isTransitioning    = false;
+    state.currentIndex       = dayIndex;
+    state.currentSpreadIndex = si;
     sessionStorage.setItem('lastHash', location.hash);
     updatePickerCurrent();
   });
 
-  Promise.all(imgPromises).then(() => {
-    el.classList.add('illus-in');
-  });
+  Promise.all(imgPromises).then(() => el.classList.add('illus-in'));
 }
 
 // ── Month view renderer ───────────────────────────────────
@@ -241,7 +267,7 @@ async function renderSpread(index, direction) {
 function renderMonthView(monthStr, direction) {
   if (state.isTransitioning) return;
   state.isTransitioning = true;
-  state.view = 'month';
+  state.view      = 'month';
   state.viewMonth = monthStr;
 
   const el = buildMonthView(monthStr);
@@ -257,13 +283,12 @@ function renderMonthView(monthStr, direction) {
 function renderFromHash(prevHash) {
   const hash = location.hash || '#/';
 
-  // Determine direction from old → new
   let direction = 'forward';
   if (prevHash) {
-    const prevDay = dayIndexFromHash(prevHash);
-    const nextDay = dayIndexFromHash(hash);
-    if (prevDay !== null && nextDay !== null) {
-      direction = nextDay >= prevDay ? 'forward' : 'backward';
+    const prevPos = positionFromHash(prevHash);
+    const nextPos = positionFromHash(hash);
+    if (prevPos !== null && nextPos !== null) {
+      direction = nextPos >= prevPos ? 'forward' : 'backward';
     }
     const prevMonth = monthFromHash(prevHash);
     const nextMonth = monthFromHash(hash);
@@ -273,18 +298,15 @@ function renderFromHash(prevHash) {
   }
 
   if (hash.startsWith('#/day/')) {
-    const slug  = hash.slice(6); // 'MM-DD'
-    const index = state.manifest.indexOf(slug);
-    if (index !== -1) {
+    const parsed = parseHashDay(hash);
+    if (parsed) {
       closePicker();
-      renderSpread(index, direction);
+      renderSpread(parsed.dayIndex, parsed.spreadIndex, direction);
     }
   } else if (hash.startsWith('#/month/')) {
-    const monthStr = hash.slice(8); // 'MM'
     closePicker();
-    renderMonthView(monthStr, direction);
+    renderMonthView(hash.slice(8), direction);
   } else {
-    // Default: restore last or go to first entry
     const last = sessionStorage.getItem('lastHash');
     if (last && last.startsWith('#/day/')) {
       location.hash = last;
@@ -294,30 +316,44 @@ function renderFromHash(prevHash) {
   }
 }
 
-function dayIndexFromHash(hash) {
-  if (!hash.startsWith('#/day/')) return null;
-  const slug = hash.slice(6);
-  const idx  = state.manifest.indexOf(slug);
-  return idx === -1 ? null : idx;
-}
-
-function monthFromHash(hash) {
-  if (hash.startsWith('#/day/')) return parseInt(hash.slice(6, 8), 10);
-  if (hash.startsWith('#/month/')) return parseInt(hash.slice(8), 10);
-  return null;
-}
-
 // ── Navigation helpers ────────────────────────────────────
 
 function navigate(delta) {
-  if (state.view === 'month') {
-    navigateMonth(delta > 0 ? 1 : -1);
-    return;
+  if (state.view === 'month') { navigateMonth(delta > 0 ? 1 : -1); return; }
+
+  const slug  = state.manifest[state.currentIndex];
+  const entry = state.cache[slug];
+
+  if (delta > 0) {
+    const spreads = entry ? entry.spreads.length : 1;
+    if (state.currentSpreadIndex < spreads - 1) {
+      // Next spread within same day
+      pulseDot();
+      location.hash = hashForSpread(slug, state.currentSpreadIndex + 1);
+    } else {
+      // Next day
+      const next = state.currentIndex + 1;
+      if (next >= state.manifest.length) return;
+      pulseDot();
+      location.hash = `#/day/${state.manifest[next]}`;
+    }
+  } else {
+    if (state.currentSpreadIndex > 0) {
+      // Previous spread within same day
+      pulseDot();
+      location.hash = hashForSpread(slug, state.currentSpreadIndex - 1);
+    } else {
+      // Previous day — go to its last spread
+      const prev = state.currentIndex - 1;
+      if (prev < 0) return;
+      pulseDot();
+      const prevSlug = state.manifest[prev];
+      loadEntry(prevSlug).then(prevEntry => {
+        const lastSI = prevEntry.spreads.length - 1;
+        location.hash = hashForSpread(prevSlug, lastSI);
+      });
+    }
   }
-  const next = state.currentIndex + delta;
-  if (next < 0 || next >= state.manifest.length) return;
-  pulseDot();
-  location.hash = `#/day/${state.manifest[next]}`;
 }
 
 function navigateMonth(delta) {
@@ -329,7 +365,7 @@ function navigateMonth(delta) {
 
 function pulseDot() {
   dot.classList.remove('is-navigating');
-  void dot.offsetWidth; // reflow to restart animation
+  void dot.offsetWidth;
   dot.classList.add('is-navigating');
   setTimeout(() => dot.classList.remove('is-navigating'), 520);
 }
@@ -345,12 +381,8 @@ function openPicker() {
   state.manifest.forEach((slug, i) => {
     const btn = document.createElement('button');
     btn.className = 'picker-btn' + (i === state.currentIndex ? ' is-current' : '');
-    btn.dataset.index = i;
     btn.textContent = slug.replace('-', '/');
-    btn.addEventListener('click', () => {
-      location.hash = `#/day/${slug}`;
-      closePicker();
-    });
+    btn.addEventListener('click', () => { location.hash = `#/day/${slug}`; closePicker(); });
     pickerList.appendChild(btn);
   });
 }
@@ -369,58 +401,45 @@ function updatePickerCurrent() {
 
 // ── Event listeners ───────────────────────────────────────
 
-dot.addEventListener('click', () => {
-  if (state.pickerOpen) closePicker();
-  else openPicker();
-});
+dot.addEventListener('click', () => { state.pickerOpen ? closePicker() : openPicker(); });
 
-// Long hover on dot → month view for current entry
 let dotHoverTimer = null;
 dot.addEventListener('mouseenter', () => {
   dotHoverTimer = setTimeout(() => {
     if (!state.pickerOpen && state.view === 'day') {
-      const filename = state.manifest[state.currentIndex];
-      if (filename) {
-        const mm = filename.slice(0, 2);
-        location.hash = `#/month/${mm}`;
-      }
+      const mm = state.manifest[state.currentIndex]?.slice(0, 2);
+      if (mm) location.hash = `#/month/${mm}`;
     }
   }, 800);
 });
 dot.addEventListener('mouseleave', () => clearTimeout(dotHoverTimer));
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); pulseDot(); navigate(1);  }
-  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); pulseDot(); navigate(-1); }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); navigate(1);  }
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); navigate(-1); }
   if (e.key === 'Escape') {
     if (state.pickerOpen) { closePicker(); return; }
     if (state.view === 'month') {
       const last = sessionStorage.getItem('lastHash');
-      if (last) location.hash = last;
-      else if (state.manifest.length) location.hash = `#/day/${state.manifest[0]}`;
+      location.hash = (last && last.startsWith('#/day/')) ? last : `#/day/${state.manifest[0]}`;
     }
   }
 });
 
-document.getElementById('edge-left').addEventListener('click', () => { pulseDot(); navigate(-1); });
+document.getElementById('edge-left').addEventListener('click', () => navigate(-1));
 
-// Touch swipe
 let touchStartX = 0;
 document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
 document.addEventListener('touchend', e => {
   const delta = e.changedTouches[0].clientX - touchStartX;
-  if (delta < -40) { pulseDot(); navigate(1);  }
-  if (delta > 40)  { pulseDot(); navigate(-1); }
+  if (delta < -40) navigate(1);
+  if (delta > 40)  navigate(-1);
 }, { passive: true });
 
-// Close picker on outside click
 document.addEventListener('click', e => {
-  if (state.pickerOpen && !picker.contains(e.target) && e.target !== dot) {
-    closePicker();
-  }
+  if (state.pickerOpen && !picker.contains(e.target) && e.target !== dot) closePicker();
 });
 
-// Hash routing
 let prevHash = null;
 window.addEventListener('hashchange', () => {
   const old = prevHash;

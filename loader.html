@@ -204,8 +204,58 @@
       align-self: flex-start;
     }
 
-    .generate-btn:hover  { opacity: 0.8; }
+    .generate-btn:hover    { opacity: 0.8; }
     .generate-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .add-spread-btn {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 9px 20px;
+      cursor: pointer;
+      transition: color 150ms ease, border-color 150ms ease;
+      align-self: flex-start;
+    }
+    .add-spread-btn:hover { color: var(--text); border-color: var(--text); }
+
+    .spread-block {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--bg);
+    }
+
+    .spread-block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .spread-label {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .remove-spread-btn {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 4px;
+      transition: color 150ms ease;
+    }
+    .remove-spread-btn:hover { color: var(--text); }
 
     .save-status {
       font-size: 13px;
@@ -250,21 +300,9 @@
         <div class="computed-date" id="computed-date"></div>
       </div>
 
-      <div class="field">
-        <label>Journal text</label>
-        <textarea id="text-input" placeholder="Write your entry here. Separate paragraphs with a blank line."></textarea>
-        <span class="hint">Blank lines become paragraph breaks.</span>
-      </div>
+      <div id="spreads-container"></div>
 
-      <div class="field">
-        <label>Illustrations</label>
-        <div class="drop-zone" id="drop-zone">
-          Drop images here, or click to select
-          <input type="file" id="file-input" multiple accept="image/*">
-        </div>
-        <div class="thumb-row" id="thumb-row"></div>
-        <span class="hint">Images will be named <code id="img-name-hint">MM-DD-a.jpg</code>, etc.</span>
-      </div>
+      <button class="add-spread-btn" id="add-spread-btn">+ Add spread</button>
 
       <button class="generate-btn" id="generate-btn">Save entry</button>
       <div class="save-status" id="save-status"></div>

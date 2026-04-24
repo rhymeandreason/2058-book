@@ -1,0 +1,31 @@
+{
+  "date": {
+    "year": 2058,
+    "month": "JANUARY",
+    "day": 26,
+    "weekday": "SAT"
+  },
+  "spreads": [
+    {
+      "paragraphs": [
+        "Trying to organize my cottage and got sucked into browsing through my old stuff from school. I gotta get rid of some things. Been at it all morning without much of a dent.",
+        "Reminiscing on my first visit to Sweden in undergrad... It felt like suddenly seeing the future. Community solar power, centralized heat pump, bio gas, local recycling, greenhouses. And the collective confidence that sustainable circular urban development is worth investing in.",
+        "I went to grad school in Malmo with glee. I built my first sim during a hackathon. I could have stayed in Malmo for work. Or gone to Berlin or Barcelona or Amsterdam. Europe generally had been the leader in this field, and I could have worked on closing the loop on the first truly circular city.",
+        "But sims gained popularity fast in the US, and I got a nice job offer from a development group in Denver. I thought I’d start there and then move into planning. Or maybe I would work a few years and apply for a phd to do research."
+      ],
+      "illustrations": [
+        "01-26-a.jpg"
+      ]
+    },
+    {
+      "paragraphs": [
+        "Then the second solar boom happened. Turns out the US has one big thing that many other nations lack: a resettling population to build for. Flood zone residents moving to inland cities. Young couples moving to small towns. Strip malls transforming into mixed use neighborhoods. Everything wanted solar. Community solar caught on faster than anyone could have dreamed.",
+        "I was young and happy to put in the long hours. Then at some point I realized I had missed the window to go for a phd. Somehow I had become an expert in energy grid sims. Somehow I had become a person who spent 40 hours a week in front of a screen and far too many hours at airports.",
+        "I don’t even design any more. I basically feed information into the system, tune parameters, and choose the best outcomes. There is skill to not produce something entirely brutish and inaccurate, but it’s not the same as designing a park or town center."
+      ],
+      "illustrations": [
+        "01-26-b.jpg"
+      ]
+    }
+  ]
+}

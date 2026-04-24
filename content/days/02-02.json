@@ -1,10 +1,14 @@
 {
   "date": { "year": 2058, "month": "FEBRUARY", "day": 2, "weekday": "SAT" },
-  "paragraphs": [
-    "Got my e-bike out from the basement and took it to The Barn for a tune-up. Got to catch up with Tomas. He's really expanded the place. They host ceramics and printmaking classes here now. It used to be just woodworking and bikes. He swapped my battery so now I can get twice the range.",
-    "Biked to Point Reyes. Always my favorite thing on a trip home.",
-    "I headed out early to avoid the rush of weekenders. Got coffee and focaccia at Point Reyes Station. Made it to Alamere Falls right at low tide.",
-    "I realized I could do this any weekend... The bike lane was only completed after I left for college, so I've only known this as a rare day trip."
-  ],
-  "illustrations": ["02-02-a.jpg"]
+  "spreads": [
+    {
+      "paragraphs": [
+        "Got my e-bike out from the basement and took it to The Barn for a tune-up. Got to catch up with Tomas. He's really expanded the place. They host ceramics and printmaking classes here now. It used to be just woodworking and bikes. He swapped my battery so now I can get twice the range.",
+        "Biked to Point Reyes. Always my favorite thing on a trip home.",
+        "I headed out early to avoid the rush of weekenders. Got coffee and focaccia at Point Reyes Station. Made it to Alamere Falls right at low tide.",
+        "I realized I could do this any weekend... The bike lane was only completed after I left for college, so I've only known this as a rare day trip."
+      ],
+      "illustrations": ["02-02-a.jpg"]
+    }
+  ]
 }

@@ -8,25 +8,24 @@ const MONTH_NAMES = [
 const WEEKDAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
 const ALPHA    = 'abcdefghijklmnopqrstuvwxyz';
 
-const monthSel    = document.getElementById('month-sel');
-const dayInput    = document.getElementById('day-input');
-const computedEl  = document.getElementById('computed-date');
-const textInput   = document.getElementById('text-input');
-const dropZone    = document.getElementById('drop-zone');
-const fileInput   = document.getElementById('file-input');
-const thumbRow    = document.getElementById('thumb-row');
-const imgHint     = document.getElementById('img-name-hint');
-const saveBtn     = document.getElementById('generate-btn');
-const statusEl    = document.getElementById('save-status');
+const monthSel         = document.getElementById('month-sel');
+const dayInput         = document.getElementById('day-input');
+const computedEl       = document.getElementById('computed-date');
+const spreadsContainer = document.getElementById('spreads-container');
+const addSpreadBtn     = document.getElementById('add-spread-btn');
+const saveBtn          = document.getElementById('generate-btn');
+const statusEl         = document.getElementById('save-status');
 
-let selectedFiles = [];
+// Each element: { files: File[], textEl, dropZoneEl, thumbRowEl }
+let spreadData = [];
 
 // ── Date helpers ──────────────────────────────────────────
 
 function getSlug() {
   const mm = monthSel.value;
-  const dd = String(parseInt(dayInput.value, 10) || 0).padStart(2, '0');
-  return mm && dayInput.value ? `${mm}-${dd}` : null;
+  const d  = parseInt(dayInput.value, 10);
+  if (!mm || !d) return null;
+  return `${mm}-${String(d).padStart(2, '0')}`;
 }
 
 function updateDateDisplay() {
@@ -37,47 +36,26 @@ function updateDateDisplay() {
   const weekday = WEEKDAYS[date.getDay()];
   const month   = MONTH_NAMES[parseInt(mm, 10) - 1];
   computedEl.textContent = `${weekday} · ${month} ${d}, ${YEAR}`;
-  updateImgHint();
-}
-
-function updateImgHint() {
-  const slug = getSlug();
-  imgHint.textContent = slug ? `${slug}-a.jpg` : 'MM-DD-a.jpg';
+  refreshAllHints();
 }
 
 monthSel.addEventListener('change', updateDateDisplay);
 dayInput.addEventListener('input',  updateDateDisplay);
 
-// ── Image handling ────────────────────────────────────────
+// ── Image naming ──────────────────────────────────────────
 
-function addFiles(files) {
-  selectedFiles = [...selectedFiles, ...Array.from(files)];
-  renderThumbs();
+// All images across all spreads share one sequential letter index
+function allFiles() {
+  return spreadData.flatMap(s => s.files);
 }
 
-function renderThumbs() {
-  thumbRow.innerHTML = '';
+function imageNameForFile(spreadIndex, fileIndexWithinSpread) {
   const slug = getSlug() || 'MM-DD';
-  selectedFiles.forEach((file, i) => {
-    const label = `${slug}-${ALPHA[i]}${extOf(file)}`;
-    const thumb = document.createElement('div');
-    thumb.className = 'thumb';
-
-    const img = document.createElement('img');
-    img.alt = '';
-    const reader = new FileReader();
-    reader.onload = e => { img.src = e.target.result; };
-    reader.readAsDataURL(file);
-
-    const lbl = document.createElement('div');
-    lbl.className = 'thumb-label';
-    lbl.textContent = label;
-
-    thumb.appendChild(img);
-    thumb.appendChild(lbl);
-    thumbRow.appendChild(thumb);
-  });
-  updateImgHint();
+  // Count files in preceding spreads to get global letter index
+  let globalIndex = 0;
+  for (let i = 0; i < spreadIndex; i++) globalIndex += spreadData[i].files.length;
+  globalIndex += fileIndexWithinSpread;
+  return `${slug}-${ALPHA[globalIndex]}.jpg`;
 }
 
 function extOf(file) {
@@ -85,18 +63,159 @@ function extOf(file) {
   return m ? m[0].toLowerCase() : '.jpg';
 }
 
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => addFiles(e.target.files));
-dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  addFiles(e.dataTransfer.files);
-});
+function refreshAllHints() {
+  spreadData.forEach((s, si) => renderThumbs(si));
+}
 
-monthSel.addEventListener('change', renderThumbs);
-dayInput.addEventListener('input',  renderThumbs);
+// ── Spread block builder ──────────────────────────────────
+
+function buildSpreadBlock(si) {
+  const block = document.createElement('div');
+  block.className = 'spread-block';
+  block.dataset.si = si;
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'spread-block-header';
+
+  const label = document.createElement('span');
+  label.className = 'spread-label';
+  label.textContent = `Spread ${si + 1}`;
+
+  header.appendChild(label);
+
+  if (si > 0) {
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-spread-btn';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => removeSpread(si));
+    header.appendChild(removeBtn);
+  }
+
+  block.appendChild(header);
+
+  // Text field
+  const textField = document.createElement('div');
+  textField.className = 'field';
+
+  const textLabel = document.createElement('label');
+  textLabel.textContent = 'Journal text';
+
+  const textarea = document.createElement('textarea');
+  textarea.placeholder = 'Write your entry here. Separate paragraphs with a blank line.';
+
+  const textHint = document.createElement('span');
+  textHint.className = 'hint';
+  textHint.textContent = 'Blank lines become paragraph breaks.';
+
+  textField.appendChild(textLabel);
+  textField.appendChild(textarea);
+  textField.appendChild(textHint);
+  block.appendChild(textField);
+
+  // Images field
+  const imgField = document.createElement('div');
+  imgField.className = 'field';
+
+  const imgLabel = document.createElement('label');
+  imgLabel.textContent = 'Illustrations';
+
+  const dropZone = document.createElement('div');
+  dropZone.className = 'drop-zone';
+  dropZone.textContent = 'Drop images here, or click to select';
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  dropZone.appendChild(fileInput);
+
+  const thumbRow = document.createElement('div');
+  thumbRow.className = 'thumb-row';
+
+  const hint = document.createElement('span');
+  hint.className = 'hint';
+  hint.innerHTML = 'Images will be named sequentially, e.g. <code>MM-DD-a.jpg</code>.';
+
+  imgField.appendChild(imgLabel);
+  imgField.appendChild(dropZone);
+  imgField.appendChild(thumbRow);
+  imgField.appendChild(hint);
+  block.appendChild(imgField);
+
+  // Wire up file interactions
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => addFiles(si, e.target.files));
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    addFiles(si, e.dataTransfer.files);
+  });
+
+  // Store refs
+  spreadData[si] = { files: [], textEl: textarea, dropZoneEl: dropZone, thumbRowEl: thumbRow };
+
+  return block;
+}
+
+function addSpread() {
+  const si    = spreadData.length;
+  spreadData.push(null); // placeholder, filled by buildSpreadBlock
+  const block = buildSpreadBlock(si);
+  spreadsContainer.appendChild(block);
+  refreshAllHints();
+}
+
+function removeSpread(si) {
+  spreadData.splice(si, 1);
+  // Rebuild all blocks from scratch to keep indices correct
+  spreadsContainer.innerHTML = '';
+  const savedTexts = spreadData.map(s => s?.textEl?.value || '');
+  const savedFiles = spreadData.map(s => s?.files || []);
+  spreadData = [];
+  savedTexts.forEach((_, i) => {
+    const block = buildSpreadBlock(i);
+    spreadsContainer.appendChild(block);
+    spreadData[i].textEl.value = savedTexts[i];
+    spreadData[i].files = savedFiles[i];
+    renderThumbs(i);
+  });
+  refreshAllHints();
+}
+
+// ── Image handling ────────────────────────────────────────
+
+function addFiles(si, files) {
+  spreadData[si].files = [...spreadData[si].files, ...Array.from(files)];
+  refreshAllHints(); // re-render all since global letter indices shift
+}
+
+function renderThumbs(si) {
+  const { files, thumbRowEl } = spreadData[si];
+  thumbRowEl.innerHTML = '';
+  files.forEach((file, fi) => {
+    const name  = imageNameForFile(si, fi);
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+
+    const img    = document.createElement('img');
+    img.alt = '';
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; };
+    reader.readAsDataURL(file);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'thumb-label';
+    lbl.textContent = name;
+
+    thumb.appendChild(img);
+    thumb.appendChild(lbl);
+    thumbRowEl.appendChild(thumb);
+  });
+}
 
 // ── Server save helpers ───────────────────────────────────
 
@@ -129,11 +248,11 @@ async function saveImage(path, file) {
 }
 
 async function appendToManifest(slug) {
-  const res = await fetch('content/manifest.json');
+  const res      = await fetch('content/manifest.json');
   const manifest = await res.json();
   if (!manifest.includes(slug)) {
     manifest.push(slug);
-    manifest.sort(); // MM-DD strings sort correctly lexicographically
+    manifest.sort();
     await saveText('content/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
   }
 }
@@ -143,7 +262,6 @@ async function appendToManifest(slug) {
 saveBtn.addEventListener('click', async () => {
   const mm = monthSel.value;
   const d  = parseInt(dayInput.value, 10);
-
   if (!mm || !d) { setStatus('error', 'Select a month and day.'); return; }
 
   const dd      = String(d).padStart(2, '0');
@@ -152,37 +270,34 @@ saveBtn.addEventListener('click', async () => {
   const weekday = WEEKDAYS[date.getDay()];
   const month   = MONTH_NAMES[parseInt(mm, 10) - 1];
 
-  const rawText = textInput.value.trim();
-  if (!rawText) { setStatus('error', 'Add some journal text.'); return; }
+  const spreads = spreadData.map((s, si) => {
+    const rawText    = s.textEl.value.trim();
+    const paragraphs = rawText.split(/\n[ \t]*\n/).map(p => p.trim().replace(/\n/g, ' ')).filter(Boolean);
+    const illustrations = s.files.map((f, fi) => imageNameForFile(si, fi));
+    return { paragraphs, illustrations };
+  });
 
-  const paragraphs = rawText.split(/\n[ \t]*\n/).map(p => p.trim().replace(/\n/g, ' ')).filter(Boolean);
+  if (spreads.every(s => s.paragraphs.length === 0)) {
+    setStatus('error', 'Add some journal text to at least one spread.');
+    return;
+  }
 
-  const illustrations = selectedFiles.length
-    ? selectedFiles.map((f, i) => `${slug}-${ALPHA[i]}${extOf(f)}`)
-    : [];
-
-  const entry = {
-    date: { year: YEAR, month, day: d, weekday },
-    paragraphs,
-    illustrations,
-  };
+  const entry = { date: { year: YEAR, month, day: d, weekday }, spreads };
 
   saveBtn.disabled = true;
   setStatus('saving', 'Saving…');
 
   try {
-    // 1. Write the entry JSON
-    await saveText(
-      `content/days/${slug}.json`,
-      JSON.stringify(entry, null, 2) + '\n'
-    );
+    await saveText(`content/days/${slug}.json`, JSON.stringify(entry, null, 2) + '\n');
 
-    // 2. Write images
-    for (let i = 0; i < selectedFiles.length; i++) {
-      await saveImage(`illustrations/${illustrations[i]}`, selectedFiles[i]);
+    let globalIdx = 0;
+    for (const s of spreadData) {
+      for (const file of s.files) {
+        const name = `${slug}-${ALPHA[globalIdx++]}${extOf(file)}`;
+        await saveImage(`illustrations/${name}`, file);
+      }
     }
 
-    // 3. Update manifest
     await appendToManifest(slug);
 
     setStatus('ok', `Saved! <a href="index.html#/day/${slug}" target="_blank">View entry →</a>`);
@@ -202,10 +317,15 @@ function setStatus(type, html) {
 }
 
 function clearForm() {
-  monthSel.value    = '';
-  dayInput.value    = '';
-  textInput.value   = '';
-  selectedFiles     = [];
-  thumbRow.innerHTML = '';
+  monthSel.value = '';
+  dayInput.value = '';
   computedEl.textContent = '';
+  spreadData = [];
+  spreadsContainer.innerHTML = '';
+  addSpread(); // reset to one empty spread
 }
+
+// ── Init ──────────────────────────────────────────────────
+
+addSpreadBtn.addEventListener('click', addSpread);
+addSpread(); // start with one spread
