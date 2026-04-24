@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2058 — Add Entry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Edu+SA+Beginner:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://use.typekit.net/ysh8hol.css">
+  <style>
+    :root {
+      --bg:          #f0ece4;
+      --panel-bg:    #faf8f4;
+      --text:        #3a3530;
+      --muted:       #a09080;
+      --accent:      #b8a898;
+      --radius:      6px;
+      --shadow:      0 2px 28px rgba(60,50,40,0.08);
+      --font-body:   "Edu SA Beginner", Georgia, serif;
+      --font-ui:     "aktiv-grotesk", system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: var(--font-ui);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 64px 24px 80px;
+    }
+
+    .container {
+      width: min(600px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .title {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    a.back {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 150ms ease;
+    }
+    a.back:hover { color: var(--text); }
+
+    .card {
+      background: var(--panel-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    label {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .date-row {
+      display: grid;
+      grid-template-columns: 1fr 80px;
+      gap: 12px;
+    }
+
+    select, input[type="number"] {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 9px 12px;
+      width: 100%;
+      outline: none;
+      transition: border-color 150ms ease;
+      -moz-appearance: textfield;
+    }
+
+    select:focus, input[type="number"]:focus {
+      border-color: var(--accent);
+    }
+
+    .computed-date {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      min-height: 18px;
+    }
+
+    textarea {
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.75;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 12px 14px;
+      width: 100%;
+      height: 200px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 150ms ease;
+    }
+
+    textarea:focus { border-color: var(--accent); }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 1.5px dashed var(--accent);
+      border-radius: 4px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 150ms ease, border-color 150ms ease;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .drop-zone.drag-over {
+      background: var(--bg);
+      border-color: var(--text);
+      color: var(--text);
+    }
+
+    .drop-zone input[type="file"] { display: none; }
+
+    .thumb-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .thumb {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+    .thumb-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      background: rgba(250,248,244,0.9);
+      color: var(--muted);
+      text-align: center;
+      padding: 3px 2px;
+    }
+
+    .generate-btn {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--panel-bg);
+      background: var(--text);
+      border: none;
+      border-radius: 4px;
+      padding: 12px 24px;
+      cursor: pointer;
+      transition: opacity 150ms ease;
+      align-self: flex-start;
+    }
+
+    .generate-btn:hover  { opacity: 0.8; }
+    .generate-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .save-status {
+      font-size: 13px;
+      min-height: 20px;
+      transition: opacity 200ms ease;
+    }
+
+    .save-status.ok      { color: #6a8a6a; }
+    .save-status.error   { color: #a06050; }
+    .save-status.saving  { color: var(--muted); }
+    .save-status a       { color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="title">Add journal entry</span>
+      <a class="back" href="index.html">← back to journal</a>
+    </header>
+
+    <div class="card">
+      <div class="field">
+        <label>Date</label>
+        <div class="date-row">
+          <select id="month-sel">
+            <option value="">Month</option>
+            <option value="01">January</option>
+            <option value="02">February</option>
+            <option value="03">March</option>
+            <option value="04">April</option>
+            <option value="05">May</option>
+            <option value="06">June</option>
+            <option value="07">July</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+          <input type="number" id="day-input" placeholder="Day" min="1" max="31">
+        </div>
+        <div class="computed-date" id="computed-date"></div>
+      </div>
+
+      <div class="field">
+        <label>Journal text</label>
+        <textarea id="text-input" placeholder="Write your entry here. Separate paragraphs with a blank line."></textarea>
+        <span class="hint">Blank lines become paragraph breaks.</span>
+      </div>
+
+      <div class="field">
+        <label>Illustrations</label>
+        <div class="drop-zone" id="drop-zone">
+          Drop images here, or click to select
+          <input type="file" id="file-input" multiple accept="image/*">
+        </div>
+        <div class="thumb-row" id="thumb-row"></div>
+        <span class="hint">Images will be named <code id="img-name-hint">MM-DD-a.jpg</code>, etc.</span>
+      </div>
+
+      <button class="generate-btn" id="generate-btn">Save entry</button>
+      <div class="save-status" id="save-status"></div>
+    </div>
+  </div>
+
+  <script src="loader.js"></script>
+</body>
+</html>
