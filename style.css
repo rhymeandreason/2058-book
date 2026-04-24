@@ -6,7 +6,7 @@
   --date-color:   #a09080;
   --dot-color:    #b8a898;
   --dot-hover:    #8a7a6a;
-  --panel-radius: 6px;
+  --panel-radius: 16px;
   --shadow:       0 2px 28px rgba(60, 50, 40, 0.08);
   --font-body:    "Edu SA Beginner", Georgia, serif;
   --font-ui:      "aktiv-grotesk", system-ui, sans-serif;
@@ -178,7 +178,7 @@ html, body {
   align-items: flex-end;
   justify-content: center;
   padding-right: 24px;
-  gap: 4px;
+  gap: 8px;
   font-family: var(--font-ui);
   color: var(--date-color);
   opacity: 0;
@@ -195,10 +195,10 @@ html, body {
   transition-delay: 480ms;
 }
 
-.date-gutter .d-year    { font-size: 12px; letter-spacing: 0.08em; }
-.date-gutter .d-month   { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
-.date-gutter .d-day     { font-size: 38px; line-height: 1; font-weight: 300; }
-.date-gutter .d-weekday { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.date-gutter .d-year    { font-size: 14px; letter-spacing: 0.08em; }
+.date-gutter .d-month   { font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; }
+.date-gutter .d-day     { font-size: 40px; line-height: 1; font-weight: 300; }
+.date-gutter .d-weekday { font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* ── Text panel ──────────────────────────────────────────── */
 .text-panel {
@@ -209,7 +209,7 @@ html, body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: top;
 }
 
 .text-panel p {
