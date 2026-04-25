@@ -176,7 +176,8 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: top;
+  justify-content: start;
+  padding-top:34px;
   padding-right: 24px;
   gap: 8px;
   font-family: var(--font-ui);
