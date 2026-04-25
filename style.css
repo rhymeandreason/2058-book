@@ -159,16 +159,16 @@ html, body {
 }
 
 /* Transition states */
-.spread.entering-right { transform: translateX(48px); opacity: 0; }
-.spread.entering-left  { transform: translateX(-48px); opacity: 0; }
+.spread.entering-right { transform: translateX(1000px); opacity: 0; }
+.spread.entering-left  { transform: translateX(-1000px); opacity: 0; }
 .spread.visible        { transform: translateX(0); opacity: 1; }
-.spread.exiting-left   { transform: translateX(-48px); opacity: 0; }
-.spread.exiting-right  { transform: translateX(48px); opacity: 0; }
+.spread.exiting-left   { transform: translateX(-1000px); opacity: 0; }
+.spread.exiting-right  { transform: translateX(1000px); opacity: 0; }
 
 .spread {
   transition:
-    transform 520ms var(--ease-out),
-    opacity   520ms var(--ease-out);
+    transform 1000ms var(--ease-out),
+    opacity   2000ms var(--ease-out);
 }
 
 /* ── Date gutter ─────────────────────────────────────────── */
