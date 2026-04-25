@@ -159,16 +159,26 @@ html, body {
 }
 
 /* Transition states */
-.spread.entering-right { transform: translateX(1000px); opacity: 0; }
-.spread.entering-left  { transform: translateX(-1000px); opacity: 0; }
+.spread.entering-right { transform: translateX(1170px); opacity: .5; }
+.spread.entering-left  { transform: translateX(-1170px); opacity: .5; }
 .spread.visible        { transform: translateX(0); opacity: 1; }
-.spread.exiting-left   { transform: translateX(-1000px); opacity: 0; }
-.spread.exiting-right  { transform: translateX(1000px); opacity: 0; }
+.spread.exiting-left   { transform: translateX(-1170px); opacity: 0.5; }
+.spread.exiting-right  { transform: translateX(1170px); opacity: 0.5; }
 
 .spread {
   transition:
-    transform 1000ms var(--ease-out),
-    opacity   2000ms var(--ease-out);
+    transform 600ms var(--ease-out),
+    opacity   600ms var(--ease-out);
+}
+
+/* Phase 1: fade out old spread content before page slide */
+.spread.content-out .text-panel p,
+.spread.content-out .illus-img,
+.spread.content-out .date-gutter {
+  opacity: 0 !important;
+  transform: none !important;
+  transition: opacity 300ms ease-out !important;
+  transition-delay: 0ms !important;
 }
 
 /* ── Date gutter ─────────────────────────────────────────── */

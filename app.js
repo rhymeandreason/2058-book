@@ -22,6 +22,9 @@ const dot        = document.getElementById('nav-dot');
 const picker     = document.getElementById('picker');
 const pickerList = document.getElementById('picker-list');
 
+// Pre-built spread DOM cache: `${slug}/${si}` → { el, peek, ready: Promise<void> }
+const prebuilt = {};
+
 // ── Fetch helpers ─────────────────────────────────────────
 
 async function loadEntry(slug) {
@@ -42,6 +45,40 @@ function prefetchNeighbors(index) {
   const next  = state.manifest[index + 1];
   if (prev) loadEntry(prev).catch(() => {});
   if (next)  loadEntry(next).catch(() => {});
+}
+
+function spreadKey(slug, si) { return `${slug}/${si}`; }
+
+async function prebuildSpread(slug, si) {
+  const key = spreadKey(slug, si);
+  if (prebuilt[key]) return;
+  const entry = await loadEntry(slug).catch(() => null);
+  if (!entry || si < 0 || si >= entry.spreads.length) return;
+  if (prebuilt[key]) return; // guard against concurrent calls
+  const { el, imgPromises, peek } = buildSpread(entry, si);
+  prebuilt[key] = { el, peek, ready: Promise.all(imgPromises) };
+}
+
+async function prebuildNeighbors(dayIndex, si) {
+  const slug  = state.manifest[dayIndex];
+  const entry = state.cache[slug];
+  if (!entry) return;
+
+  // Forward neighbor
+  if (si < entry.spreads.length - 1) {
+    prebuildSpread(slug, si + 1);
+  } else if (dayIndex + 1 < state.manifest.length) {
+    prebuildSpread(state.manifest[dayIndex + 1], 0);
+  }
+
+  // Backward neighbor
+  if (si > 0) {
+    prebuildSpread(slug, si - 1);
+  } else if (dayIndex > 0) {
+    const prevSlug  = state.manifest[dayIndex - 1];
+    const prevEntry = await loadEntry(prevSlug).catch(() => null);
+    if (prevEntry) prebuildSpread(prevSlug, prevEntry.spreads.length - 1);
+  }
 }
 
 // ── URL helpers ───────────────────────────────────────────
@@ -206,27 +243,39 @@ function buildMonthView(monthStr) {
 
 // ── Transition engine ─────────────────────────────────────
 
-function transitionIn(newEl, direction, onSettled) {
+// old and delay are optional: renderSpread pre-starts content-out and passes
+// the already-grabbed old element plus remaining ms to wait before sliding.
+function transitionIn(newEl, direction, onSettled, { old, delay = 350 } = {}) {
   const enterClass = direction === 'forward' ? 'entering-right' : 'entering-left';
+  const exitClass  = direction === 'forward' ? 'exiting-left'   : 'exiting-right';
 
+  if (old === undefined) old = stage.querySelector('.visible');
+
+  // Phase 1: fade out old spread content (only when caller hasn't already started it)
+  if (delay === 350 && old) old.classList.add('content-out');
+
+  // Position new spread off-screen; content starts at opacity:0 from CSS defaults
   newEl.classList.add(enterClass);
   stage.appendChild(newEl);
 
-  const old = stage.querySelector('.visible');
-  if (old) {
-    old.classList.replace('visible', direction === 'forward' ? 'exiting-left' : 'exiting-right');
-  }
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      newEl.classList.replace(enterClass, 'visible');
-    });
-  });
-
+  // Phase 2: page slide (after content-out delay)
   setTimeout(() => {
-    old?.remove();
-    onSettled?.();
-  }, 540);
+    if (old) {
+      old.classList.remove('content-out');
+      old.classList.replace('visible', exitClass);
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        newEl.classList.replace(enterClass, 'visible');
+      });
+    });
+
+    // Phase 3: cleanup + trigger content-in (t=delay+600ms)
+    setTimeout(() => {
+      old?.remove();
+      onSettled?.();
+    }, 600);
+  }, delay);
 }
 
 // ── Spread renderer ───────────────────────────────────────
@@ -236,18 +285,35 @@ async function renderSpread(dayIndex, spreadIndex, direction) {
   state.isTransitioning = true;
   state.view = 'day';
 
+  // Start content-out immediately so animation begins on click, not after load.
+  const old = stage.querySelector('.visible');
+  const contentOutStart = Date.now();
+  if (old) old.classList.add('content-out');
+
   const slug  = state.manifest[dayIndex];
   const entry = await loadEntry(slug);
   prefetchNeighbors(dayIndex);
 
-  // Clamp spreadIndex in case of stale URLs
   const si = Math.max(0, Math.min(spreadIndex, entry.spreads.length - 1));
 
-  const { el, imgPromises, peek } = buildSpread(entry, si);
+  // Use pre-built spread if available (images already decoded), otherwise build fresh.
+  const key = spreadKey(slug, si);
+  let el, peek, imagesReady;
+  if (prebuilt[key]) {
+    ({ el, peek, ready: imagesReady } = prebuilt[key]);
+    delete prebuilt[key];
+  } else {
+    const built = buildSpread(entry, si);
+    el = built.el;
+    peek = built.peek;
+    imagesReady = Promise.all(built.imgPromises);
+  }
 
   const hasNextSpread = si < entry.spreads.length - 1;
   const hasNextDay    = dayIndex < state.manifest.length - 1;
   const hasNext       = hasNextSpread || hasNextDay;
+
+  const delay = Math.max(0, 350 - (Date.now() - contentOutStart));
 
   transitionIn(el, direction, () => {
     el.classList.add('text-in', 'date-in');
@@ -257,9 +323,10 @@ async function renderSpread(dayIndex, spreadIndex, direction) {
     state.currentSpreadIndex = si;
     sessionStorage.setItem('lastHash', location.hash);
     updatePickerCurrent();
-  });
+    prebuildNeighbors(dayIndex, si);
+  }, { old, delay });
 
-  Promise.all(imgPromises).then(() => el.classList.add('illus-in'));
+  imagesReady.then(() => el.classList.add('illus-in'));
 }
 
 // ── Month view renderer ───────────────────────────────────
